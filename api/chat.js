@@ -10,10 +10,9 @@ const app = express();
 app.use(express.json());
 
 // Configuration from environment variables
-// OLLAMA_URL - leave empty or unset if no local Ollama. Will use fallback responses.
-const OLLAMA_URL = process.env.OLLAMA_URL || 'https://api.ollama.com';
-const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'https://ollama.com/api';
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
@@ -407,9 +406,9 @@ app.get('/api/tasks', (req, res) => {
 
 // Health check - read env vars at request time
 app.get('/api/health', (req, res) => {
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://api.ollama.com';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
-  const ollamaKey = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+  const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
   res.json({ 
     status: 'BotForge is online', 
@@ -424,9 +423,9 @@ app.get('/api/health', (req, res) => {
 
 // Test Ollama endpoint - read env vars at request time
 app.get('/api/test-ollama', async (req, res) => {
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://api.ollama.com';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
-  const ollamaKey = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+  const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
   try {
     console.log('[Test] Calling Ollama at:', ollamaUrl, 'with model:', ollamaModel);
