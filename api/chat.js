@@ -404,32 +404,30 @@ app.get('/api/tasks', (req, res) => {
   res.json({ tasks: taskQueue });
 });
 
-// Health check - read env vars at request time
+// Health check - use constants
 app.get('/api/health', (req, res) => {
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api/v1';
   const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
   const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
   res.json({ 
     status: 'BotForge is online', 
     model: ollamaModel,
-    llmProvider: ollamaUrl ? 'ollama' : 'none',
-    ollamaUrl: ollamaUrl,
+    llmProvider: OLLAMA_URL ? 'ollama' : 'none',
+    ollamaUrl: OLLAMA_URL,
     ollamaModel: ollamaModel,
     ollamaKeySet: !!ollamaKey,
     telegram: TELEGRAM_API ? 'configured' : 'not configured'
   });
 });
 
-// Test Ollama endpoint - read env vars at request time
+// Test Ollama endpoint - use constants
 app.get('/api/test-ollama', async (req, res) => {
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api/v1';
   const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
   const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
   try {
-    console.log('[Test] Calling Ollama at:', ollamaUrl, 'with model:', ollamaModel);
-    const response = await axios.post(`${ollamaUrl}/chat/completions`, {
+    console.log('[Test] Calling Ollama at:', OLLAMA_URL, 'with model:', ollamaModel);
+    const response = await axios.post(`${OLLAMA_URL}/chat/completions`, {
       model: ollamaModel,
       messages: [
         { role: 'user', content: 'Say hello in 3 words' }
