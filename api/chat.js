@@ -9,12 +9,12 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
-// Configuration - hardcoded for now to test, env vars later
+// Configuration - try OpenAI first, fallback to Ollama
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const OLLAMA_URL = 'https://ollama.com/api/v1';
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 // Telegram Bot for BotForge (separate from Nova's bot)
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8715866858:AAH52qEgWs-PFcTQ1KmphpvwmmM7Skf-xvg';
