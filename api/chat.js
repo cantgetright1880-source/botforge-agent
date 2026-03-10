@@ -57,9 +57,13 @@ async function callLLM(prompt, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
  */
 async function callOllama(prompt, systemPrompt) {
   // Read env vars at runtime to get latest values
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://api.ollama.com';
-  const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
-  const ollamaKey = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+  const ollamaUrl = process.env.OLLAMA_URL || '';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+  const ollamaKey = process.env.OLLAMA_API_KEY || '';
+  
+  if (!ollamaUrl || !ollamaKey) {
+    throw new Error('Ollama not configured');
+  }
   
   try {
     const headers = {
