@@ -10,7 +10,8 @@ const app = express();
 app.use(express.json());
 
 // Configuration from environment variables
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+// OLLAMA_URL - leave empty or unset if no local Ollama. Will use fallback responses.
+const OLLAMA_URL = process.env.OLLAMA_URL || '';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -20,8 +21,8 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8715866858:AAH52qE
 const TELEGRAM_API = TELEGRAM_BOT_TOKEN ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}` : null;
 const JEREMY_CHAT_ID = process.env.JEREMY_CHAT_ID || '8464449857';
 
-// Determine which LLM to use (priority: OpenAI > Anthropic > Ollama)
-const LLM_PROVIDER = OPENAI_API_KEY ? 'openai' : (ANTHROPIC_API_KEY ? 'anthropic' : 'ollama');
+// Determine which LLM to use (priority: OpenAI > Anthropic > Ollama (only if URL set))
+const LLM_PROVIDER = OPENAI_API_KEY ? 'openai' : (ANTHROPIC_API_KEY ? 'anthropic' : (OLLAMA_URL ? 'ollama' : 'none'));
 
 const DEFAULT_SYSTEM_PROMPT = 'You are BotForge, an AI CEO agent. You manage a team of workers and delegate tasks to subagents. Be professional, decisive, and keep your boss Jeremy informed of progress.';
 
@@ -39,8 +40,11 @@ async function callLLM(prompt, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
     return callOpenAI(prompt, fullSystemPrompt);
   } else if (LLM_PROVIDER === 'anthropic' && ANTHROPIC_API_KEY) {
     return callAnthropic(prompt, fullSystemPrompt);
-  } else {
+  } else if (LLM_PROVIDER === 'ollama' && OLLAMA_URL) {
     return callOllama(prompt, fullSystemPrompt);
+  } else {
+    // No LLM configured - return fallback response
+    return "I've received your message. To enable AI responses, please configure an LLM (OpenAI, Anthropic, or Ollama) in the environment variables.";
   }
 }
 
