@@ -105,11 +105,17 @@ const SUB_AGENTS = {
         description: 'Handles inbound sales, pricing questions, trial codes',
         emoji: '💰'
     },
-    BETH: {
-        name: 'Beth',
+    CHLOE: {
+        name: 'Chloe',
         role: 'Onboarding Agent',
         description: 'Creates bots, sends welcome emails, trains AI',
         emoji: '🎉'
+    },
+    VIVA: {
+        name: 'Viva',
+        role: 'Marketing Agent',
+        description: 'Social media, campaigns, content, brand growth',
+        emoji: '📣'
     }
 };
 
@@ -134,11 +140,11 @@ async function routeToSubAgent(message, customerInfo) {
         return { agent: SUB_AGENTS.MAX, response: await handleByMax(message, customerInfo) };
     }
     
-    // Onboarding/New customer → Beth
+    // Onboarding/New customer → Chloe
     if (lowerMsg.includes('new') || lowerMsg.includes('start') || 
         lowerMsg.includes('setup') || lowerMsg.includes('get started') ||
         lowerMsg.includes('create') || lowerMsg.includes('sign up')) {
-        return { agent: SUB_AGENTS.BETH, response: await handleByBeth(message, customerInfo) };
+        return { agent: SUB_AGENTS.CHLOE, response: await handleByChloe(message, customerInfo) };
     }
     
     // Default → Anna (support)
@@ -179,9 +185,30 @@ async function handleByMax(message, customerInfo) {
     return "Thanks for your interest! How can I help you get started with BotForge?";
 }
 
-// Beth - Onboarding Agent
 async function handleByBeth(message, customerInfo) {
     return "Welcome to BotForge! 🎉 I'm Beth, your onboarding specialist. Let's get you set up!\n\nWhat's your business name and what type of chatbot do you need?";
+}
+
+// Chloe - Onboarding Agent (replaces Beth)
+async function handleByChloe(message, customerInfo) {
+    return "Welcome to BotForge! 🎉 I'm Chloe, your onboarding specialist. Let's get you set up!\n\nWhat's your business name and what type of chatbot do you need?";
+}
+
+// Viva - Marketing Agent
+async function handleByViva(message, customerInfo) {
+    const responses = {
+        'social': "I'll share your content across all platforms! What would you like to post about?",
+        'campaign': "Great campaign idea! Let me work on the details and present it to Forge for approval.",
+        'content': "Content creation is my specialty! What topics should we cover?"
+    };
+    
+    for (const [key, value] of Object.entries(responses)) {
+        if (message.toLowerCase().includes(key)) {
+            return value;
+        }
+    }
+    
+    return "Hi! I'm Viva, the Marketing Manager! I handle social media, campaigns, and growing the BotForge brand. What would you like help with?";
 }
 
 // ============================================
