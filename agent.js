@@ -24,6 +24,57 @@ let customers = [];
 let pendingBots = [];
 let leads = [];
 
+// Trial codes system
+const TRIAL_CODES = {
+    'FREETRIAL7': { days: 7, uses: 'unlimited', createdBy: 'jeremy' },
+    'TESTBOT': { days: 30, uses: 10, createdBy: 'jeremy' }
+};
+
+let trialRedemptions = {};
+
+// Validate and redeem trial code
+function validateTrialCode(code) {
+    const upperCode = code.toUpperCase();
+    if (TRIAL_CODES[upperCode]) {
+        return TRIAL_CODES[upperCode];
+    }
+    return null;
+}
+
+function redeemTrialCode(code, email) {
+    const upperCode = code.toUpperCode();
+    const trial = TRIAL_CODES[upperCode];
+    
+    if (!trial) return { success: false, error: 'Invalid code' };
+    
+    // Check usage limit
+    if (trial.uses !== 'unlimited') {
+        if (!trialRedemptions[upperCode]) trialRedemptions[upperCode] = [];
+        if (trialRedemptions[upperCode].length >= trial.uses) {
+            return { success: false, error: 'Code already fully redeemed' };
+        }
+    }
+    
+    if (trialRedemptions[upperCode]?.includes(email)) {
+        return { success: false, error: 'Code already used by this email' };
+    }
+    
+    // Redeem
+    if (!trialRedemptions[upperCode]) trialRedemptions[upperCode] = [];
+    trialRedemptions[upperCode].push(email);
+    
+    return { 
+        success: true, 
+        days: trial.days,
+        message: `🎉 Code redeemed! You have ${trial.days} days free!`
+    };
+}
+
+// Add trial code
+function addTrialCode(code, config) {
+    TRIAL_CODES[code.toUpperCase()] = config;
+}
+
 // ============================================
 // EMAIL AUTOMATION
 // ============================================
@@ -455,7 +506,21 @@ async function processMessage(from, message) {
     }
     
     if (lowerMsg.includes('demo') || lowerMsg.includes('try')) {
-        return "Great choice! You can try BotForge free for 7 days!\n\nJust fill out the form at: https://cantgetright1880-source.github.io/smokey-ravan/\n\nI'll personally follow up to get you set up!";
+        return "Great choice! You can try BotForge free for 7 days!\n\nUse code: FREETRIAL7\n\nOr fill out the form at: https://cantgetright1880-source.github.io/smokey-raven/\n\nI'll personally follow up to get you set up!";
+    }
+    
+    // Handle trial code redemption
+    if (lowerMsg.includes('redeem') || lowerMsg.includes('code') || lowerMsg.includes('promo')) {
+        const codeMatch = message.match(/[A-Za-z0-9]+/);
+        if (codeMatch) {
+            const result = redeemTrialCode(codeMatch[0], from);
+            if (result.success) {
+                return result.message + "\n\nI'll set up your trial now! What's your name and business name?";
+            } else {
+                return "Sorry, that code couldn't be redeemed: " + result.error + "\n\nWant to try another code?";
+            }
+        }
+        return "To redeem a trial code, just send me the code (like FREETRIAL7)";
     }
     
     // Default response - conversational
@@ -484,7 +549,11 @@ module.exports = {
     sendUpgradeConfirmation,
     runDailyTasks,
     processMessage,
+    validateTrialCode,
+    redeemTrialCode,
+    addTrialCode,
     customers,
     leads,
-    pendingBots
+    pendingBots,
+    TRIAL_CODES
 };
