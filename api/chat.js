@@ -58,8 +58,8 @@ async function callOllama(prompt, systemPrompt) {
   const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
   const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
-  if (!OLLAMA_URL || !ollamaKey) {
-    throw new Error('Ollama not configured');
+  if (!OLLAMA_URL) {
+    throw new Error('Ollama URL not configured');
   }
   
   try {
