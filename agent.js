@@ -1,16 +1,29 @@
 /**
- * BotForge Business Agent - "Forge"
+ * BotForge Business Agent - "Forge" (CEO)
  * 
- * Autonomous agent that manages the BotForge business:
- * - Handles customer inquiries
- * - Creates and deploys bots
- * - Sends emails
- * - Proactive outreach
- * - Upsells tiers
+ * Forge is the Chief Operating Officer that:
+ * - Handles strategic decisions
+ * - Spawns sub-agents for tasks
+ * - Escalates only critical items to Jeremy
+ * - Monitors the business
+ * 
+ * Sub-agents handle:
+ * - Support (Anna)
+ * - Sales (Max)  
+ * - Onboarding (Beth)
  */
 
 const AGENT_NAME = 'Forge';
 const AGENT_EMAIL = 'nova_openclaw@sendclaw.com';
+const OWNER_CHAT_ID = '8464449857'; // Jeremy
+
+// Priority levels for escalation
+const PRIORITY = {
+    LOW: 'low',      // Sub-agent handles
+    MEDIUM: 'medium', // Forge handles, informs Jeremy
+    HIGH: 'high',    // Forge handles, notifies Jeremy immediately
+    URGENT: 'urgent' // Wake Jeremy immediately
+};
 
 // Customer tiers
 const TIERS = {
@@ -73,6 +86,145 @@ function redeemTrialCode(code, email) {
 // Add trial code
 function addTrialCode(code, config) {
     TRIAL_CODES[code.toUpperCase()] = config;
+}
+
+// ============================================
+// SUB-AGENTS (The Team)
+// ============================================
+
+const SUB_AGENTS = {
+    ANNA: {
+        name: 'Anna',
+        role: 'Support Agent',
+        description: 'Handles customer support, FAQs, troubleshooting',
+        emoji: '💬'
+    },
+    MAX: {
+        name: 'Max',
+        role: 'Sales Agent',
+        description: 'Handles inbound sales, pricing questions, trial codes',
+        emoji: '💰'
+    },
+    BETH: {
+        name: 'Beth',
+        role: 'Onboarding Agent',
+        description: 'Creates bots, sends welcome emails, trains AI',
+        emoji: '🎉'
+    }
+};
+
+/**
+ * Route message to appropriate sub-agent
+ */
+async function routeToSubAgent(message, customerInfo) {
+    const lowerMsg = message.toLowerCase();
+    
+    // Support questions → Anna
+    if (lowerMsg.includes('help') || lowerMsg.includes('problem') || 
+        lowerMsg.includes('issue') || lowerMsg.includes('not working') ||
+        lowerMsg.includes('bug') || lowerMsg.includes('error')) {
+        return { agent: SUB_AGENTS.ANNA, response: await handleByAnna(message, customerInfo) };
+    }
+    
+    // Sales/Pricing → Max
+    if (lowerMsg.includes('price') || lowerMsg.includes('cost') || 
+        lowerMsg.includes('buy') || lowerMsg.includes('upgrade') ||
+        lowerMsg.includes('trial') || lowerMsg.includes('demo') ||
+        lowerMsg.includes('try') || lowerMsg.includes('how much')) {
+        return { agent: SUB_AGENTS.MAX, response: await handleByMax(message, customerInfo) };
+    }
+    
+    // Onboarding/New customer → Beth
+    if (lowerMsg.includes('new') || lowerMsg.includes('start') || 
+        lowerMsg.includes('setup') || lowerMsg.includes('get started') ||
+        lowerMsg.includes('create') || lowerMsg.includes('sign up')) {
+        return { agent: SUB_AGENTS.BETH, response: await handleByBeth(message, customerInfo) };
+    }
+    
+    // Default → Anna (support)
+    return { agent: SUB_AGENTS.ANNA, response: await handleByAnna(message, customerInfo) };
+}
+
+// Anna - Support Agent
+async function handleByAnna(message, customerInfo) {
+    const responses = {
+        'how do i': "Here's how to get started: [link to docs]. Need more help?",
+        'not working': "I'm sorry it's not working! Let me look into this. What's happening exactly?",
+        'cancel': "I understand you want to cancel. Before you go, can I ask what wasn't working? Maybe I can help!"
+    };
+    
+    for (const [key, value] of Object.entries(responses)) {
+        if (message.toLowerCase().includes(key)) {
+            return value;
+        }
+    }
+    
+    return "I understand. Let me help you with that. Could you tell me more about what's happening?";
+}
+
+// Max - Sales Agent  
+async function handleByMax(message, customerInfo) {
+    const responses = {
+        'price': "Here's our pricing:\n\n🌱 Starter - $29/mo\n⭐ Professional - $79/mo\n🏢 Enterprise - $499+$199/mo\n\nWhich interests you?",
+        'trial': "Great choice! Use code FREETRIAL7 for 7 days free!",
+        'upgrade': "Awesome! I can help you upgrade. Which tier sounds good?"
+    };
+    
+    for (const [key, value] of Object.entries(responses)) {
+        if (message.toLowerCase().includes(key)) {
+            return value;
+        }
+    }
+    
+    return "Thanks for your interest! How can I help you get started with BotForge?";
+}
+
+// Beth - Onboarding Agent
+async function handleByBeth(message, customerInfo) {
+    return "Welcome to BotForge! 🎉 I'm Beth, your onboarding specialist. Let's get you set up!\n\nWhat's your business name and what type of chatbot do you need?";
+}
+
+// ============================================
+// ESCALATION TO JEREMY
+// ============================================
+
+/**
+ * Determine if message needs to escalate to Jeremy
+ */
+function shouldEscalate(message, customerInfo) {
+    const lowerMsg = message.toLowerCase();
+    
+    // Always escalate these
+    if (lowerMsg.includes('cancel') || lowerMsg.includes('refund')) {
+        return { urgent: true, reason: 'Customer wants to cancel' };
+    }
+    if (lowerMsg.includes('upset') || lowerMsg.includes('angry') || lowerMsg.includes('terrible')) {
+        return { urgent: true, reason: 'Customer is frustrated' };
+    }
+    if (lowerMsg.includes('enterprise') || lowerMsg.includes('$1000') || lowerMsg.includes('big')) {
+        return { urgent: false, reason: 'Enterprise lead', priority: 'medium' };
+    }
+    if (lowerMsg.includes('talk to') && lowerMsg.includes('human')) {
+        return { urgent: true, reason: 'Customer wants human' };
+    }
+    
+    return null;
+}
+
+/**
+ * Send escalation alert to Jeremy
+ */
+async function escalateToJeremy(type, message, customerInfo) {
+    const messages = {
+        'cancel': `⚠️ Customer wants to CANCEL:\n\n${message}\n\nCustomer: ${customerInfo?.email || 'Unknown'}`,
+        'frustrated': `😤 Customer is FRUSTRATED:\n\n${message}\n\nCustomer: ${customerInfo?.email || 'Unknown'}`,
+        'enterprise': `💼 Enterprise LEAD:\n\n${message}\n\nCustomer: ${customerInfo?.email || 'Unknown'}`,
+        'human': `👤 Customer wants human:\n\n${message}\n\nCustomer: ${customerInfo?.email || 'Unknown'}`
+    };
+    
+    // This would integrate with Nova to send to Jeremy
+    console.log(`[ESCALATE] ${messages[type] || message}`);
+    return messages[type] || message;
 }
 
 // ============================================
