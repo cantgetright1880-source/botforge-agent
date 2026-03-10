@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 
 // Configuration from environment variables
-const OLLAMA_URL = process.env.OLLAMA_URL || 'https://ollama.com/api';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'https://ollama.com/api/v1';
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -74,16 +74,18 @@ async function callOllama(prompt, systemPrompt) {
     
     console.log('[Ollama] Calling:', ollamaUrl, 'model:', ollamaModel);
     
-    const response = await axios.post(`${ollamaUrl}/api/generate`, {
+    const response = await axios.post(`${ollamaUrl}/chat/completions`, {
       model: ollamaModel,
-      prompt: prompt,
-      stream: false,
-      system: systemPrompt
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ],
+      stream: false
     }, {
       headers,
       timeout: 60000
     });
-    return response.data.response || '';
+    return response.data.choices[0].message.content || '';
   } catch (error) {
     console.error('[Ollama error]:', error.message);
     console.error('[Ollama response]:', error.response?.data);
@@ -406,7 +408,7 @@ app.get('/api/tasks', (req, res) => {
 
 // Health check - read env vars at request time
 app.get('/api/health', (req, res) => {
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api';
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api/v1';
   const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
   const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
@@ -423,15 +425,17 @@ app.get('/api/health', (req, res) => {
 
 // Test Ollama endpoint - read env vars at request time
 app.get('/api/test-ollama', async (req, res) => {
-  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api';
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://ollama.com/api/v1';
   const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
   const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
   try {
     console.log('[Test] Calling Ollama at:', ollamaUrl, 'with model:', ollamaModel);
-    const response = await axios.post(`${ollamaUrl}/api/generate`, {
+    const response = await axios.post(`${ollamaUrl}/chat/completions`, {
       model: ollamaModel,
-      prompt: 'Say hello in 3 words',
+      messages: [
+        { role: 'user', content: 'Say hello in 3 words' }
+      ],
       stream: false
     }, {
       headers: ollamaKey ? { 'Authorization': `Bearer ${ollamaKey}` } : {},
