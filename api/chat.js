@@ -396,6 +396,8 @@ app.get('/api/health', (req, res) => {
     status: 'BotForge is online', 
     model: OLLAMA_MODEL,
     llmProvider: LLM_PROVIDER,
+    ollamaUrl: OLLAMA_URL || '(not set)',
+    ollamaKey: OLLAMA_API_KEY ? '(set)' : '(not set)',
     telegram: TELEGRAM_API ? 'configured' : 'not configured'
   });
 });
