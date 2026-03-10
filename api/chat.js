@@ -12,6 +12,7 @@ app.use(express.json());
 // Configuration from environment variables
 // OLLAMA_URL - leave empty or unset if no local Ollama. Will use fallback responses.
 const OLLAMA_URL = process.env.OLLAMA_URL || '';
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -53,12 +54,20 @@ async function callLLM(prompt, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
  */
 async function callOllama(prompt, systemPrompt) {
   try {
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    if (OLLAMA_API_KEY) {
+      headers['Authorization'] = `Bearer ${OLLAMA_API_KEY}`;
+    }
+    
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: OLLAMA_MODEL,
       prompt: prompt,
       stream: false,
       system: systemPrompt
     }, {
+      headers,
       timeout: 30000
     });
     return response.data.response || '';
