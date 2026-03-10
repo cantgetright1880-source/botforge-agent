@@ -15,9 +15,5 @@
       "src": "/(.*)",
       "dest": "api/chat.js"
     }
-  ],
-  "env": {
-    "OLLAMA_URL": "@ollama_url",
-    "OLLAMA_MODEL": "@ollama_model"
-  }
+  ]
 }
