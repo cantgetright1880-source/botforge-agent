@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BotForge - AI CEO</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #eee;
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 1px solid #333;
+      margin-bottom: 20px;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .subtitle {
+      color: #888;
+      margin-top: 10px;
+      font-size: 1rem;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      background: #00d4ff20;
+      color: #00d4ff;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin-top: 15px;
+    }
+    
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0d0d1a;
+      border-radius: 15px;
+      overflow: hidden;
+      border: 1px solid #333;
+    }
+    
+    .messages {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+    
+    .message {
+      margin-bottom: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .message .role {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+    
+    .message.jeremy .role { color: #ff6b6b; }
+    .message.botforge .role { color: #00d4ff; }
+    
+    .message .content {
+      background: #1a1a2e;
+      padding: 15px 20px;
+      border-radius: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    
+    .message.jeremy .content {
+      background: #2d1f1f;
+      border-left: 3px solid #ff6b6b;
+    }
+    
+    .message.botforge .content {
+      background: #1a2a3a;
+      border-left: 3px solid #00d4ff;
+    }
+    
+    .tasks {
+      background: #1a1a2e;
+      padding: 10px 15px;
+      margin-top: 10px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+    }
+    
+    .tasks strong { color: #7b2ff7; }
+    
+    .input-area {
+      padding: 20px;
+      background: #15152a;
+      border-top: 1px solid #333;
+      display: flex;
+      gap: 10px;
+    }
+    
+    input {
+      flex: 1;
+      padding: 15px 20px;
+      border: 1px solid #333;
+      border-radius: 10px;
+      background: #0d0d1a;
+      color: #eee;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    input:focus {
+      border-color: #00d4ff;
+    }
+    
+    button {
+      padding: 15px 30px;
+      background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    
+    button:hover {
+      transform: scale(1.02);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .typing {
+      color: #888;
+      font-style: italic;
+      padding: 10px 20px;
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #666;
+      padding: 60px 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🤖 BotForge</h1>
+      <p class="subtitle">AI CEO Agent</p>
+      <span class="status-badge">● Online</span>
+    </header>
+    
+    <div class="chat-container">
+      <div class="messages" id="messages">
+        <div class="empty-state">
+          <p>Chat with BotForge, your AI CEO agent.</p>
+          <p>Give him tasks and he'll delegate to his team.</p>
+        </div>
+      </div>
+      
+      <div class="input-area">
+        <input type="text" id="messageInput" placeholder="Send a message to BotForge..." autocomplete="off">
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const messagesDiv = document.getElementById('messages');
+    const input = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    let isLoading = false;
+    
+    function addMessage(role, content, tasks = []) {
+      // Remove empty state
+      const emptyState = messagesDiv.querySelector('.empty-state');
+      if (emptyState) emptyState.remove();
+      
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      
+      let html = `<div class="role">${role === 'jeremy' ? 'You (Jeremy)' : 'BotForge'}</div>`;
+      html += `<div class="content">${content}</div>`;
+      
+      if (tasks && tasks.length > 0) {
+        html += `<div class="tasks"><strong>🤖 Tasks spawned:</strong><br>`;
+        tasks.forEach(t => {
+          html += `• Task #${t.taskId}: ${t.description || t.message}<br>`;
+        });
+        html += `</div>`;
+      }
+      
+      div.innerHTML = html;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    async function sendMessage() {
+      const message = input.value.trim();
+      if (!message || isLoading) return;
+      
+      isLoading = true;
+      sendBtn.disabled = true;
+      input.value = '';
+      
+      addMessage('jeremy', message);
+      
+      // Show typing indicator
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'message botforge';
+      typingDiv.innerHTML = '<div class="typing">BotForge is thinking...</div>';
+      messagesDiv.appendChild(typingDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        
+        const data = await response.json();
+        
+        // Remove typing indicator
+        typingDiv.remove();
+        
+        // Add BotForge's response
+        addMessage('botforge', data.botforge, data.tasks);
+        
+      } catch (error) {
+        typingDiv.remove();
+        addMessage('botforge', 'Sorry, I encountered an error: ' + error.message);
+      }
+      
+      isLoading = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
+    
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    
+    // Check health on load
+    fetch('/api/health').then(r => r.json()).then(d => {
+      console.log('BotForge:', d);
+    }).catch(console.error);
+  </script>
+</body>
+</html>

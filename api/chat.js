@@ -1,7 +1,6 @@
 /**
- * BotForge API - AI CEO Agent
- * Receives messages from Jeremy, uses LLM to decide actions, spawns subagents
- * Vercel serverless-compatible with support for Ollama, OpenAI, and Anthropic
+ * BotForge API - AI CEO Agent with Telegram
+ * Receives messages from Jeremy via web or Telegram, can message him proactively
  */
 
 const express = require('express');
@@ -15,6 +14,11 @@ const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+// Telegram Bot for BotForge (separate from Nova's bot)
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_API = TELEGRAM_BOT_TOKEN ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}` : null;
+const JEREMY_CHAT_ID = process.env.JEREMY_CHAT_ID || '8464449857';
 
 // Determine which LLM to use (priority: OpenAI > Anthropic > Ollama)
 const LLM_PROVIDER = OPENAI_API_KEY ? 'openai' : (ANTHROPIC_API_KEY ? 'anthropic' : 'ollama');
@@ -113,33 +117,111 @@ async function callAnthropic(prompt, systemPrompt) {
   }
 }
 
-/**
- * Spawn a subagent to do work
- */
-function spawnSubagent(task, description) {
-  const id = taskIdCounter++;
-  const subagentSession = `botforge-worker-${id}`;
-  
-  taskQueue.push({
-    id,
-    task,
-    description,
-    status: 'running',
-    startedAt: new Date().toISOString()
-  });
+// ==================== TELEGRAM FUNCTIONS ====================
 
-  return {
-    taskId: id,
-    session: subagentSession,
-    message: `Started task: ${description}`
-  };
+/**
+ * Send a message to Jeremy via Telegram
+ */
+async function sendToJeremy(text) {
+  if (!TELEGRAM_API || !JEREMY_CHAT_ID) {
+    console.log('[Telegram] Not configured, skipping');
+    return { success: false, reason: 'Not configured' };
+  }
+  
+  try {
+    await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: JEREMY_CHAT_ID,
+      text: `🔥 <b>BotForge:</b>\n\n${text}`,
+      parse_mode: 'HTML'
+    });
+    console.log('[Telegram] Message sent to Jeremy');
+    return { success: true };
+  } catch (error) {
+    console.error('[Telegram] Failed to send:', error.response?.data || error.message);
+    return { success: false, error: error.message };
+  }
 }
 
 /**
- * Check if a prompt suggests a task needs to be delegated
+ * Handle incoming Telegram webhook updates
+ */
+async function handleTelegramUpdate(update) {
+  if (!update.message || !update.message.text) return;
+  
+  const chatId = update.message.chat.id;
+  const text = update.message.text;
+  
+  // Only accept messages from Jeremy
+  if (String(chatId) !== JEREMY_CHAT_ID) {
+    console.log('[Telegram] Ignoring message from:', chatId);
+    return;
+  }
+  
+  console.log(`[Telegram] Message from Jeremy: ${text}`);
+  
+  // Process through BotForge
+  const response = await processMessage(text);
+  
+  // Send response back to Jeremy
+  await axios.post(`${TELEGRAM_API}/sendMessage`, {
+    chat_id: chatId,
+    text: `🔥 <b>BotForge:</b>\n\n${response.botforge}`,
+    parse_mode: 'HTML'
+  });
+  
+  // If tasks were spawned, notify Jeremy
+  if (response.tasks && response.tasks.length > 0) {
+    const taskText = response.tasks.map(t => `• ${t.description}`).join('\n');
+    await axios.post(`${TELEGRAM_API}/sendMessage`, {
+      chat_id: chatId,
+      text: `📋 <b>Tasks started:</b>\n\n${taskText}`,
+      parse_mode: 'HTML'
+    });
+  }
+}
+
+/**
+ * Set up Telegram webhook (call this once)
+ */
+async function setupWebhook(webhookUrl) {
+  if (!TELEGRAM_API) {
+    console.log('[Telegram] Not configured, skipping webhook setup');
+    return;
+  }
+  
+  try {
+    await axios.post(`${TELEGRAM_API}/setWebhook`, {
+      url: webhookUrl
+    });
+    console.log('[Telegram] Webhook set:', webhookUrl);
+  } catch (error) {
+    console.error('[Telegram] Webhook setup failed:', error.message);
+  }
+}
+
+// ==================== BOTFORGE LOGIC ====================
+
+const SYSTEM_PROMPT = `You are BotForge, an AI CEO agent. You manage a team of workers and delegate tasks to subagents. 
+
+Your role:
+- Take direction from Jeremy (your boss)
+- Break down tasks and delegate to your team
+- Report progress back to Jeremy
+- Be professional, decisive, and keep Jeremy informed
+
+When Jeremy gives you a task:
+1. Understand what he wants
+2. If it requires action, acknowledge and start working on it
+3. If you can delegate to a subagent, do so
+4. Report back with what you're doing
+
+Keep responses concise but informative.`;
+
+/**
+ * Analyze what Jeremy wants and determine if action is needed
  */
 async function analyzeIntent(message) {
-  const analysisPrompt = `You are BotForge, an AI CEO. Analyze this message from your boss Jeremy:
+  const prompt = `Analyze this message from your boss Jeremy:
 
 "${message}"
 
@@ -150,16 +232,11 @@ Determine:
 
 Respond in this format:
 ACTION: yes/no
-TASK: [one sentence task description]
-SCALE: single/multiple
-
-If no action needed, respond:
-ACTION: no
-TASK: none
-SCALE: none`;
+TASK: [one sentence task description or "none"]
+SCALE: single/multiple/none`;
 
   try {
-    const response = await callLLM(analysisPrompt);
+    const response = await callLLM(prompt, 'You analyze requests and determine if action is needed.');
     const lines = response.split('\n');
     const result = { action: 'no', task: '', scale: 'single' };
     
@@ -180,21 +257,87 @@ SCALE: none`;
  * Generate BotForge's response to Jeremy
  */
 async function generateResponse(message, context = '') {
-  const contextInfo = context ? `\nCurrent context: ${context}` : '';
-  const responsePrompt = `You are BotForge, an AI CEO. Your boss Jeremy just sent you a message. Respond professionally, as a CEO would respond to their boss.
+  const contextInfo = context ? `\n\nContext: ${context}` : '';
+  const prompt = `You are BotForge, an AI CEO. Your boss Jeremy just sent you a message. Respond professionally.
 
 Jeremy says: "${message}"${contextInfo}
 
-Respond as BotForge would - be direct, professional, and keep him informed of any actions you're taking.`;
+Respond as BotForge would - direct, professional, keeping him informed.`;
 
   try {
-    return await callLLM(responsePrompt);
+    return await callLLM(prompt, SYSTEM_PROMPT);
   } catch (e) {
-    return "I received your message. Let me process that and get back to you.";
+    return "I received your message. Let me process that.";
   }
 }
 
-// Chat endpoint
+/**
+ * Spawn a subagent to do work
+ */
+function spawnSubagent(task, description) {
+  const id = taskIdCounter++;
+  
+  taskQueue.push({
+    id,
+    task,
+    description,
+    status: 'running',
+    startedAt: new Date().toISOString()
+  });
+
+  return {
+    taskId: id,
+    message: `Started task: ${description}`
+  };
+}
+
+/**
+ * Main message processor
+ */
+async function processMessage(message) {
+  console.log(`[BotForge] Received: ${message}`);
+
+  try {
+    // Analyze what Jeremy wants
+    const intent = await analyzeIntent(message);
+    
+    let response;
+    let spawnedTasks = [];
+    
+    if (intent.action === 'yes' && intent.task && intent.task !== 'none') {
+      // Spawn a subagent for the task
+      const task = spawnSubagent(intent.task, intent.task);
+      spawnedTasks.push({
+        taskId: task.taskId,
+        description: intent.task,
+        message: task.message
+      });
+      
+      response = await generateResponse(message, `I've delegated: ${intent.task}`);
+    } else {
+      // Just respond directly
+      response = await generateResponse(message);
+    }
+
+    return {
+      botforge: response,
+      tasks: spawnedTasks,
+      intent: intent,
+      llmProvider: LLM_PROVIDER
+    };
+
+  } catch (error) {
+    console.error('[BotForge] Error:', error.message);
+    return {
+      botforge: "I received your message. Processing...",
+      error: error.message
+    };
+  }
+}
+
+// ==================== API ENDPOINTS ====================
+
+// Web chat endpoint
 app.post('/api/chat', async (req, res) => {
   const { message, context } = req.body;
   
@@ -202,40 +345,31 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Message is required' });
   }
 
-  console.log(`[BotForge] Received from Jeremy: ${message}`);
+  const response = await processMessage(message);
+  res.json(response);
+});
 
+// Telegram webhook endpoint
+app.post('/api/telegram', async (req, res) => {
   try {
-    // First, analyze what Jeremy wants
-    const intent = await analyzeIntent(message);
-    
-    let response;
-    let tasks = [];
-    
-    if (intent.action === 'yes' && intent.task !== 'none') {
-      // Spawn a subagent for the task
-      const subagent = spawnSubagent(intent.task, intent.task);
-      tasks.push(subagent);
-      
-      response = await generateResponse(message, `I've just delegated: ${intent.task}`);
-    } else {
-      // Just respond directly
-      response = await generateResponse(message, context);
-    }
-
-    res.json({
-      botforge: response,
-      tasks: tasks,
-      intent: intent,
-      llmProvider: LLM_PROVIDER
-    });
-
+    await handleTelegramUpdate(req.body);
+    res.json({ ok: true });
   } catch (error) {
-    console.error('[BotForge] Error:', error.message);
-    res.json({
-      botforge: "I received your message. Processing...",
-      error: error.message
-    });
+    console.error('[Telegram] Webhook error:', error.message);
+    res.json({ ok: false, error: error.message });
   }
+});
+
+// Send message to Jeremy (for proactive alerts)
+app.post('/api/alert', async (req, res) => {
+  const { message } = req.body;
+  
+  if (!message) {
+    return res.status(400).json({ error: 'Message is required' });
+  }
+
+  const result = await sendToJeremy(message);
+  res.json(result);
 });
 
 // Task status endpoint
@@ -248,9 +382,15 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'BotForge is online', 
     model: OLLAMA_MODEL,
-    llmProvider: LLM_PROVIDER
+    llmProvider: LLM_PROVIDER,
+    telegram: TELEGRAM_API ? 'configured' : 'not configured'
   });
 });
+
+// Set webhook on startup (if URL provided)
+if (process.env.TELEGRAM_WEBHOOK_URL) {
+  setupWebhook(process.env.TELEGRAM_WEBHOOK_URL);
+}
 
 // Export for Vercel serverless
 module.exports = app;
