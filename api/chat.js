@@ -11,9 +11,9 @@ app.use(express.json());
 
 // Configuration from environment variables
 // OLLAMA_URL - leave empty or unset if no local Ollama. Will use fallback responses.
-const OLLAMA_URL = process.env.OLLAMA_URL || '';
-const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'https://api.ollama.com';
+const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
