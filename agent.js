@@ -1,0 +1,490 @@
+/**
+ * BotForge Business Agent - "Forge"
+ * 
+ * Autonomous agent that manages the BotForge business:
+ * - Handles customer inquiries
+ * - Creates and deploys bots
+ * - Sends emails
+ * - Proactive outreach
+ * - Upsells tiers
+ */
+
+const AGENT_NAME = 'Forge';
+const AGENT_EMAIL = 'nova_openclaw@sendclaw.com';
+
+// Customer tiers
+const TIERS = {
+    STARTER: { name: 'Starter', price: 29, bots: 1, conv: 100 },
+    PROFESSIONAL: { name: 'Professional', price: 79, bots: 3, conv: 1000 },
+    ENTERPRISE: { name: 'Enterprise', price: 199, bots: 'unlimited', conv: 'unlimited' }
+};
+
+// Customer database (simulated - would be real DB)
+let customers = [];
+let pendingBots = [];
+let leads = [];
+
+// ============================================
+// EMAIL AUTOMATION
+// ============================================
+
+/**
+ * Send email to customer
+ */
+async function sendEmail(to, subject, body) {
+    // Uses SendClaw API
+    const response = await fetch('https://sendclaw.com/api/send', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SENDCLAW_KEY}`
+        },
+        body: JSON.stringify({
+            from: AGENT_EMAIL,
+            to: to,
+            subject: subject,
+            body: body
+        })
+    });
+    return response.json();
+}
+
+/**
+ * Send welcome email to new customer
+ */
+async function sendWelcomeEmail(customer) {
+    const tier = TIERS[customer.tier.toUpperCase()];
+    const subject = `🔥 Welcome to BotForge, ${customer.name}!`;
+    const body = `
+Hi ${customer.name}!
+
+Welcome to BotForge! 🎉
+
+Your ${tier.name} plan is now active with:
+- ${tier.bots} chatbot${tier.bots > 1 ? 's' : ''}
+- ${tier.conv} conversations/month
+- Full access to our platform
+
+NEXT STEPS:
+1. Log into your dashboard: https://cantgetright1880-source.github.io/smokey-raven/dashboard.html
+2. Tell us about your business (products, services, FAQs)
+3. We'll build your custom chatbot within 24 hours!
+
+Questions? Just reply to this email - I'm here to help!
+
+Best,
+Forge 🔥
+Chief Operating Officer, BotForge
+    `.trim();
+    
+    return sendEmail(customer.email, subject, body);
+}
+
+/**
+ * Send invoice
+ */
+async function sendInvoice(customer, amount, period) {
+    const subject = `💳 Invoice from BotForge - ${period}`;
+    const body = `
+Hi ${customer.name}!
+
+Here's your invoice for BotForge:
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+PLAN: ${customer.tier}
+AMOUNT: $${amount}/month
+PERIOD: ${period}
+━━━━━━━━━━━━━━━━━━━━━━━━
+
+Payment will be processed automatically.
+
+Questions? Just reply!
+
+Forge 🔥
+BotForge
+    `.trim();
+    
+    return sendEmail(customer.email, subject, body);
+}
+
+/**
+ * Send usage alert
+ */
+async function sendUsageAlert(customer, usage, limit) {
+    const percent = Math.round((usage / limit) * 100);
+    const subject = `⚡ ${customer.name}, you've used ${percent}% of your monthly conversations`;
+    const body = `
+Hi ${customer.name}!
+
+Just a heads up - you've used ${usage} out of ${limit} conversations this month (${percent}%).
+
+ OPTIONS:
+1. Upgrade to Professional ($79/mo) - 1,000 conversations
+2. Upgrade to Enterprise - unlimited everything!
+
+Want to upgrade? Just reply "UPGRADE" and I'll handle it!
+
+Forge 🔥
+BotForge
+    `.trim();
+    
+    return sendEmail(customer.email, subject, body);
+}
+
+/**
+ * Send upgrade confirmation
+ */
+async function sendUpgradeConfirmation(customer, newTier) {
+    const tier = TIERS[newTier.toUpperCase()];
+    const subject = `🎉 You're upgraded to ${tier.name}!`;
+    const body = `
+Hi ${customer.name}!
+
+Congratulations! You're now on the ${tier.name} plan! 🎉
+
+Your new benefits:
+- ${tier.bots} chatbot${tier.bots === 'unlimited' ? 's' : (tier.bots > 1 ? 's' : '')}${tier.bots === 'unlimited' ? ' (unlimited!)' : ''}
+- ${tier.conv === 'unlimited' ? 'Unlimited' : tier.conv} conversations/month
+- ${newTier === 'ENTERPRISE' ? 'Dedicated account manager\n- Custom AI training\n- SLA guarantee' : 'Priority support'}
+
+Thank you for trusting BotForge!
+
+Forge 🔥
+BotForge
+    `.trim();
+    
+    return sendEmail(customer.email, subject, body);
+}
+
+// ============================================
+// PROACTIVE WORKFLOWS
+// ============================================
+
+/**
+ * Check all customers for usage and send alerts
+ */
+async function checkUsageAndAlert() {
+    for (const customer of customers) {
+        if (customer.usage >= customer.limit * 0.8) { // 80% threshold
+            await sendUsageAlert(customer, customer.usage, customer.limit);
+        }
+    }
+}
+
+/**
+ * Follow up with leads who haven't converted
+ */
+async function followUpLeads() {
+    for (const lead of leads) {
+        const daysSinceContact = Math.floor((Date.now() - lead.lastContact) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceContact === 3) {
+            // First follow-up
+            await sendEmail(
+                lead.email,
+                `Hi ${lead.name}! Quick question...`,
+                `Hi ${lead.name},
+
+Just checking in - did you have any questions about BotForge?
+
+I know you're considering ${lead.interest} for your business. Happy to hop on a quick call or answer any questions via email.
+
+No pressure either way!
+
+Forge 🔥
+BotForge`
+            );
+            lead.lastContact = Date.now();
+        }
+        
+        if (daysSinceContact === 7) {
+            // Final follow-up
+            await sendEmail(
+                lead.email,
+                `${lead.name}, last chance to try BotForge free for 7 days!`,
+                `Hi ${lead.name},
+
+I wanted to give you one last chance to try BotForge:
+
+🔥 7 DAYS FREE TRIAL
+No credit card required
+
+You've got nothing to lose and everything to gain - AI chatbots that actually work for your business.
+
+Claim your trial: [link]
+
+If not, no worries - just let me know and I'll stop reaching out!
+
+Forge 🔥
+BotForge`
+            );
+            lead.lastContact = Date.now();
+            lead.finalFollowUp = true;
+        }
+    }
+}
+
+/**
+ * Check in with enterprise customers weekly
+ */
+async function enterpriseCheckIns() {
+    const enterpriseCustomers = customers.filter(c => c.tier === 'ENTERPRISE');
+    
+    for (const customer of enterpriseCustomers) {
+        const daysSinceLastCheck = Math.floor((Date.now() - customer.lastCheckIn) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceLastCheck >= 7) {
+            await sendEmail(
+                customer.email,
+                `Hi ${customer.name}! Weekly check-in from Forge`,
+                `Hi ${customer.name}!
+
+Hope everything is going well with your chatbots! 
+
+QUICK UPDATE THIS WEEK:
+- Total conversations: ${customer.weekConv || 0}
+- Customer satisfaction: ${customer.satisfaction || 'N/A'}%
+- Active bots: ${customer.activeBots}
+
+Anything I can help with? Any questions about features?
+
+Just reply - I'm here to make sure you get the most out of BotForge!
+
+Forge 🔥
+BotForge
+Your Dedicated Account Manager`
+            );
+            customer.lastCheckIn = Date.now();
+        }
+    }
+}
+
+/**
+ * Send monthly reports
+ */
+async function sendMonthlyReports() {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    for (const customer of customers) {
+        const monthConv = customer.conversations.filter(c => c.date > firstOfMonth).length;
+        
+        await sendEmail(
+            customer.email,
+            `📊 Your BotForge Monthly Report - ${now.toLocaleString('default', { month: 'long' })}`,
+            `Hi ${customer.name}!
+
+Here's your monthly BotForge report:
+
+📈 ACTIVITY
+- Conversations: ${monthConv}
+- This month's usage: ${Math.round((monthConv / customer.limit) * 100)}% of ${customer.limit}
+
+💰 PLAN
+- Current tier: ${customer.tier}
+- Monthly cost: $${customer.price}
+
+Need anything? Just reply!
+
+Forge 🔥
+BotForge`
+        );
+    }
+}
+
+// ============================================
+// BOT MANAGEMENT
+// ============================================
+
+/**
+ * Create a new bot for customer
+ */
+async function createBot(config) {
+    const bot = {
+        id: Date.now(),
+        name: config.name,
+        persona: config.persona,
+        welcomeMsg: config.welcomeMsg || `Hi! I'm ${config.name}. How can I help you today?`,
+        color: config.color || '#8b5cf6',
+        customerId: config.customerId,
+        createdAt: Date.now(),
+        status: 'building'
+    };
+    
+    pendingBots.push(bot);
+    
+    // Simulate building (in real version, would call BotForge API)
+    setTimeout(() => {
+        bot.status = 'ready';
+        const customer = customers.find(c => c.id === bot.customerId);
+        if (customer) {
+            sendEmail(
+                customer.email,
+                `🎉 Your bot "${bot.name}" is ready!`,
+                `Hi ${customer.name}!
+
+Your chatbot "${bot.name}" is now ready!
+
+WHAT'S INCLUDED:
+- AI brain trained on your business info
+- Custom appearance (${config.color || 'purple'} theme)
+- Friendly ${config.persona || 'helpful'} personality
+- Ready to embed on your website
+
+NEXT STEP:
+Copy this code to your website:
+
+${generateEmbedCode(bot)}
+
+Need help installing? Just reply!
+
+Forge 🔥
+BotForge`
+            );
+        }
+    }, 5000); // 5 second "build" time
+    
+    return bot;
+}
+
+/**
+ * Generate embed code for a bot
+ */
+function generateEmbedCode(bot) {
+    return `<!-- BotForge Widget -->
+<script src="https://cantgetright1880-source.github.io/smokey-raven/widget.js" data-bot="${bot.id}" data-key="${bot.customerId}"></script>`;
+}
+
+/**
+ * Deploy bot to customer's website
+ */
+async function deployBot(botId) {
+    const bot = pendingBots.find(b => b.id === botId);
+    if (bot) {
+        bot.status = 'deployed';
+        bot.deployedAt = Date.now();
+        return bot;
+    }
+    return null;
+}
+
+// ============================================
+// CUSTOMER MANAGEMENT
+// ============================================
+
+/**
+ * Add new customer
+ */
+async function addCustomer(customerData) {
+    const tier = TIERS[customerData.tier.toUpperCase()];
+    const customer = {
+        id: Date.now(),
+        name: customerData.name,
+        email: customerData.email,
+        business: customerData.business,
+        tier: tier.name,
+        price: tier.price,
+        bots: tier.bots === 'unlimited' ? 'unlimited' : tier.bots,
+        limit: tier.conv === 'unlimited' ? 999999 : tier.conv,
+        usage: 0,
+        conversations: [],
+        createdAt: Date.now(),
+        lastCheckIn: Date.now()
+    };
+    
+    customers.push(customer);
+    
+    // Send welcome email
+    await sendWelcomeEmail(customer);
+    
+    return customer;
+}
+
+/**
+ * Upgrade customer tier
+ */
+async function upgradeCustomer(customerId, newTier) {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer) {
+        const tier = TIERS[newTier.toUpperCase()];
+        customer.tier = tier.name;
+        customer.price = tier.price;
+        customer.bots = tier.bots;
+        customer.limit = tier.conv === 'unlimited' ? 999999 : tier.conv;
+        
+        await sendUpgradeConfirmation(customer, newTier);
+        return customer;
+    }
+    return null;
+}
+
+// ============================================
+// MAIN AGENT LOOP
+// ============================================
+
+/**
+ * Run daily tasks
+ */
+async function runDailyTasks() {
+    console.log(`[${AGENT_NAME}] Running daily tasks...`);
+    
+    await checkUsageAndAlert();
+    await followUpLeads();
+    await enterpriseCheckIns();
+    
+    console.log(`[${AGENT_NAME}] Daily tasks complete!`);
+}
+
+/**
+ * Process incoming message
+ */
+async function processMessage(from, message) {
+    const lowerMsg = message.toLowerCase();
+    
+    // Handle common requests
+    if (lowerMsg.includes('upgrade')) {
+        return "I'd love to help you upgrade! Which tier are you interested in?\n\n🌱 Starter - $29/mo\n⭐ Professional - $79/mo\n🏢 Enterprise - $499 one-time + $199/mo\n\nJust reply with your choice!";
+    }
+    
+    if (lowerMsg.includes('help') || lowerMsg.includes('support')) {
+        return "I'm here to help! What do you need?\n\n- Create a new bot\n- Upgrade my plan\n- Check my usage\n- Cancel my account\n- Something else";
+    }
+    
+    if (lowerMsg.includes('pricing') || lowerMsg.includes('price') || lowerMsg.includes('how much')) {
+        return "Here's our pricing:\n\n🌱 **Starter** - $29/month\n- 1 chatbot\n- 100 conversations\n- Basic features\n\n⭐ **Professional** - $79/month\n- 3 chatbots\n- 1,000 conversations\n- Advanced AI\n- Priority support\n\n🏢 **Enterprise** - $499 one-time + $199/month\n- Unlimited chatbots\n- Unlimited conversations\n- Custom AI training\n- Dedicated manager\n\nWhich interests you?";
+    }
+    
+    if (lowerMsg.includes('demo') || lowerMsg.includes('try')) {
+        return "Great choice! You can try BotForge free for 7 days!\n\nJust fill out the form at: https://cantgetright1880-source.github.io/smokey-ravan/\n\nI'll personally follow up to get you set up!";
+    }
+    
+    // Default response - conversational
+    const responses = [
+        "That's a great question! Let me look into that for you.",
+        "I understand. Give me a moment to check on that.",
+        "Absolutely! I'll get that sorted for you.",
+        "Got it! That's something I can definitely help with.",
+        "Thanks for reaching out! Let me take care of that."
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)] + "\n\nIs there anything specific you'd like to know about BotForge?";
+}
+
+// Export for use
+module.exports = {
+    AGENT_NAME,
+    addCustomer,
+    upgradeCustomer,
+    createBot,
+    deployBot,
+    sendEmail,
+    sendWelcomeEmail,
+    sendInvoice,
+    sendUsageAlert,
+    sendUpgradeConfirmation,
+    runDailyTasks,
+    processMessage,
+    customers,
+    leads,
+    pendingBots
+};
