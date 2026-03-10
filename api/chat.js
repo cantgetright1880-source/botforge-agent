@@ -398,11 +398,30 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'BotForge is online', 
     model: OLLAMA_MODEL,
-    llmProvider: LLM_PROVIDER,
-    ollamaUrl: OLLAMA_URL || '(not set)',
-    ollamaKey: OLLAMA_API_KEY ? '(set)' : '(not set)',
+    llmProvider: OLLAMA_URL ? 'ollama' : 'none',
+    ollamaUrl: OLLAMA_URL,
+    ollamaModel: OLLAMA_MODEL,
+    ollamaKeySet: !!OLLAMA_API_KEY,
     telegram: TELEGRAM_API ? 'configured' : 'not configured'
   });
+});
+
+// Test Ollama endpoint
+app.get('/api/test-ollama', async (req, res) => {
+  try {
+    console.log('[Test] Calling Ollama at:', OLLAMA_URL, 'with model:', OLLAMA_MODEL);
+    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
+      model: OLLAMA_MODEL,
+      prompt: 'Say hello in 3 words',
+      stream: false
+    }, {
+      headers: OLLAMA_API_KEY ? { 'Authorization': `Bearer ${OLLAMA_API_KEY}` } : {},
+      timeout: 30000
+    });
+    res.json({ success: true, response: response.data });
+  } catch (error) {
+    res.json({ success: false, error: error.message, response: error.response?.data });
+  }
 });
 
 // Set webhook on startup (if URL provided)
