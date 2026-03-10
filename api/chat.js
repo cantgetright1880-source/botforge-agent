@@ -52,19 +52,27 @@ async function callLLM(prompt, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
 /**
  * Call Ollama API
  */
+/**
+ * Call Ollama API - always read env vars at request time
+ */
 async function callOllama(prompt, systemPrompt) {
+  // Read env vars at runtime to get latest values
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://api.ollama.com';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
+  const ollamaKey = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+  
   try {
     const headers = {
       'Content-Type': 'application/json'
     };
-    if (OLLAMA_API_KEY) {
-      headers['Authorization'] = `Bearer ${OLLAMA_API_KEY}`;
+    if (ollamaKey) {
+      headers['Authorization'] = `Bearer ${ollamaKey}`;
     }
     
-    console.log('[Ollama] Calling:', OLLAMA_URL, 'model:', OLLAMA_MODEL);
+    console.log('[Ollama] Calling:', ollamaUrl, 'model:', ollamaModel);
     
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-      model: OLLAMA_MODEL,
+    const response = await axios.post(`${ollamaUrl}/api/generate`, {
+      model: ollamaModel,
       prompt: prompt,
       stream: false,
       system: systemPrompt
@@ -393,29 +401,37 @@ app.get('/api/tasks', (req, res) => {
   res.json({ tasks: taskQueue });
 });
 
-// Health check
+// Health check - read env vars at request time
 app.get('/api/health', (req, res) => {
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://api.ollama.com';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
+  const ollamaKey = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+  
   res.json({ 
     status: 'BotForge is online', 
-    model: OLLAMA_MODEL,
-    llmProvider: OLLAMA_URL ? 'ollama' : 'none',
-    ollamaUrl: OLLAMA_URL,
-    ollamaModel: OLLAMA_MODEL,
-    ollamaKeySet: !!OLLAMA_API_KEY,
+    model: ollamaModel,
+    llmProvider: ollamaUrl ? 'ollama' : 'none',
+    ollamaUrl: ollamaUrl,
+    ollamaModel: ollamaModel,
+    ollamaKeySet: !!ollamaKey,
     telegram: TELEGRAM_API ? 'configured' : 'not configured'
   });
 });
 
-// Test Ollama endpoint
+// Test Ollama endpoint - read env vars at request time
 app.get('/api/test-ollama', async (req, res) => {
+  const ollamaUrl = process.env.OLLAMA_URL || 'https://api.ollama.com';
+  const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud';
+  const ollamaKey = process.env.OLLAMA_API_KEY || '16c34abf826247918963fc9aee3dc969.xXQtEOxQtcMiGx7DOVOIOYQa';
+  
   try {
-    console.log('[Test] Calling Ollama at:', OLLAMA_URL, 'with model:', OLLAMA_MODEL);
-    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-      model: OLLAMA_MODEL,
+    console.log('[Test] Calling Ollama at:', ollamaUrl, 'with model:', ollamaModel);
+    const response = await axios.post(`${ollamaUrl}/api/generate`, {
+      model: ollamaModel,
       prompt: 'Say hello in 3 words',
       stream: false
     }, {
-      headers: OLLAMA_API_KEY ? { 'Authorization': `Bearer ${OLLAMA_API_KEY}` } : {},
+      headers: ollamaKey ? { 'Authorization': `Bearer ${ollamaKey}` } : {},
       timeout: 30000
     });
     res.json({ success: true, response: response.data });
