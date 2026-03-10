@@ -9,8 +9,8 @@ const axios = require('axios');
 const app = express();
 app.use(express.json());
 
-// Configuration from environment variables
-const OLLAMA_URL = process.env.OLLAMA_URL || 'https://ollama.com/api/v1';
+// Configuration - hardcoded for now to test, env vars later
+const OLLAMA_URL = 'https://ollama.com/api/v1';
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -52,15 +52,13 @@ async function callLLM(prompt, systemPrompt = DEFAULT_SYSTEM_PROMPT) {
  * Call Ollama API
  */
 /**
- * Call Ollama API - always read env vars at request time
+ * Call Ollama API - uses constants at top of file
  */
 async function callOllama(prompt, systemPrompt) {
-  // Read env vars at runtime to get latest values
-  const ollamaUrl = process.env.OLLAMA_URL || '';
   const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
   const ollamaKey = process.env.OLLAMA_API_KEY || '';
   
-  if (!ollamaUrl || !ollamaKey) {
+  if (!OLLAMA_URL || !ollamaKey) {
     throw new Error('Ollama not configured');
   }
   
@@ -72,9 +70,9 @@ async function callOllama(prompt, systemPrompt) {
       headers['Authorization'] = `Bearer ${ollamaKey}`;
     }
     
-    console.log('[Ollama] Calling:', ollamaUrl, 'model:', ollamaModel);
+    console.log('[Ollama] Calling:', OLLAMA_URL, 'model:', ollamaModel);
     
-    const response = await axios.post(`${ollamaUrl}/chat/completions`, {
+    const response = await axios.post(`${OLLAMA_URL}/chat/completions`, {
       model: ollamaModel,
       messages: [
         { role: 'system', content: systemPrompt },
