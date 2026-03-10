@@ -61,6 +61,8 @@ async function callOllama(prompt, systemPrompt) {
       headers['Authorization'] = `Bearer ${OLLAMA_API_KEY}`;
     }
     
+    console.log('[Ollama] Calling:', OLLAMA_URL, 'model:', OLLAMA_MODEL);
+    
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: OLLAMA_MODEL,
       prompt: prompt,
@@ -68,11 +70,12 @@ async function callOllama(prompt, systemPrompt) {
       system: systemPrompt
     }, {
       headers,
-      timeout: 30000
+      timeout: 60000
     });
     return response.data.response || '';
   } catch (error) {
-    console.error('Ollama error:', error.message);
+    console.error('[Ollama error]:', error.message);
+    console.error('[Ollama response]:', error.response?.data);
     throw new Error(`Ollama failed: ${error.message}`);
   }
 }
