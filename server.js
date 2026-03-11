@@ -308,6 +308,35 @@ Report to: Jeremy (owner) & Nova (technical help)`;
 });
 
 async function callLLM(prompt, system) {
+  // Try OpenAI first if API key available
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    try {
+      const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: system || 'You are BotForge, the COO.' },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 500
+        })
+      });
+      const openaiData = await openaiRes.json();
+      if (openaiData.choices && openaiData.choices[0]) {
+        return openaiData.choices[0].message.content;
+      }
+    } catch(e) {
+      console.log('OpenAI failed, trying Ollama:', e.message);
+    }
+  }
+  
+  // Fallback to Ollama (only works if deployed with cloud Ollama)
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
       model: MODEL,
@@ -326,11 +355,11 @@ async function callLLM(prompt, system) {
         try {
           const parsed = JSON.parse(data);
           resolve(parsed.response || '');
-        } catch (e) { resolve('AI unavailable'); }
+        } catch (e) { resolve('AI unavailable - please configure OPENAI_API_KEY'); }
       });
     });
 
-    req.on('error', () => resolve('AI connection error'));
+    req.on('error', () => resolve('AI connection error - please configure OPENAI_API_KEY'));
     req.write(postData);
     req.end();
   });
